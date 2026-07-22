@@ -1,3 +1,19 @@
-theme: minima
 title: Middling Musings
+tagline: Essays, observations, and ideas.
 description: Essays, observations, and ideas.
+url: "https://musingsofmine281.github.io"
+
+author: Your Name
+
+# Theme configuration
+theme: jekyll-theme-chirpy
+
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+jekyll-theme-chirpy:
+  assets:
+    self_host:
+      enabled: false
