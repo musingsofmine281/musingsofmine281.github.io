@@ -1,10 +1,8 @@
 name: Sync Substack Posts
-
 on:
   schedule:
     - cron: '0 */6 * * *' # Runs every 6 hours
   workflow_dispatch: # Allows you to trigger it manually anytime
-
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -13,17 +11,14 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install feedparser html2text
-
       - name: Fetch and Convert Substack RSS
         env:
           SUBSTACK_FEED: "https://middlingmusings.substack.com/feed"
@@ -36,38 +31,48 @@ jobs:
           from datetime import datetime
 
           feed_url = os.environ.get('SUBSTACK_FEED')
-          feed = feedparser.parse(feed_url)
+
+          feed = feedparser.parse(feed_url, request_headers={
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36'
+          })
+
+          print(f"Feed status: {feed.get('status', 'unknown')}")
+          print(f"Bozo (parse error flag): {feed.bozo}")
+          if feed.bozo:
+              print(f"Bozo exception: {feed.bozo_exception}")
+          print(f"Entries found: {len(feed.entries)}")
+
+          if len(feed.entries) == 0:
+              print("WARNING: No entries found. Nothing will be synced this run.")
+
           h = html2text.HTML2Text()
           h.ignore_links = False
-
           os.makedirs('_posts', exist_ok=True)
 
           for entry in feed.entries:
-              # Parse date
               if hasattr(entry, 'published_parsed'):
                   date_obj = datetime(*entry.published_parsed[:6])
               else:
                   date_obj = datetime.now()
-              
+
               date_str = date_obj.strftime('%Y-%m-%d')
-              
-              # Clean title for filename
+
               clean_title = re.sub(r'[^\w\s-]', '', entry.title).strip().lower()
               clean_title = re.sub(r'[-\s]+', '-', clean_title)
               filename = f"_posts/{date_str}-{clean_title}.md"
-              
+
               if not os.path.exists(filename):
                   content_html = entry.content[0].value if 'content' in entry else entry.summary
                   markdown_body = h.handle(content_html)
-                  
-                  # Frontmatter template
+
                   post_data = f"---\nlayout: post\ntitle: \"{entry.title}\"\ndate: {date_obj.strftime('%Y-%m-%d %H:%M:%S')}\nlink: {entry.link}\n---\n\n{markdown_body}"
-                  
+
                   with open(filename, 'w', encoding='utf-8') as f:
                       f.write(post_data)
                   print(f"Created {filename}")
+              else:
+                  print(f"Already exists, skipping: {filename}")
           EOF
-
       - name: Commit and Push Changes
         run: |
           git config --global user.name "github-actions[bot]"
